@@ -1,0 +1,243 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Online Courier Brand Colors - Matching Logo */
+  --color-logo-blue: #3B9AC4;
+  --color-logo-blue-light: #5BB5D8;
+  --color-logo-teal: #2A8BA8;
+  --color-logo-orange: #F9A826;
+  --color-logo-orange-dark: #E8941E;
+  --color-logo-orange-light: #FFB94D;
+
+  /* Legacy colors (for compatibility) */
+  --color-pastel-blue: #A8D5E5;
+  --color-pastel-blue-dark: #3B9AC4;
+  --color-pastel-blue-light: #D4EBF2;
+  --color-yellow-accent: #FFD93D;
+  --color-yellow-accent-dark: #F9A826;
+  --color-yellow-accent-light: #FFF3B0;
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: #FAFCFD;
+  --foreground: #1a2e35;
+  --card: #ffffff;
+  --card-foreground: #1a2e35;
+  --popover: #ffffff;
+  --popover-foreground: #1a2e35;
+  --primary: #3B9AC4;
+  --primary-foreground: #ffffff;
+  --secondary: #D4EBF2;
+  --secondary-foreground: #1a2e35;
+  --muted: #f0f7fa;
+  --muted-foreground: #5a7a85;
+  --accent: #F9A826;
+  --accent-foreground: #1a2e35;
+  --destructive: #ef4444;
+  --border: #d1e5ed;
+  --input: #d1e5ed;
+  --ring: #3B9AC4;
+  --chart-1: #3B9AC4;
+  --chart-2: #F9A826;
+  --chart-3: #5BB5D8;
+  --chart-4: #E8941E;
+  --chart-5: #D4EBF2;
+  --sidebar: #f0f7fa;
+  --sidebar-foreground: #1a2e35;
+  --sidebar-primary: #7EC8E3;
+  --sidebar-primary-foreground: #1a2e35;
+  --sidebar-accent: #D4EBF2;
+  --sidebar-accent-foreground: #1a2e35;
+  --sidebar-border: #d1e5ed;
+  --sidebar-ring: #7EC8E3;
+}
+
+.dark {
+  --background: #0f1a1e;
+  --foreground: #f0f7fa;
+  --card: #1a2e35;
+  --card-foreground: #f0f7fa;
+  --popover: #1a2e35;
+  --popover-foreground: #f0f7fa;
+  --primary: #3B9AC4;
+  --primary-foreground: #ffffff;
+  --secondary: #2a4550;
+  --secondary-foreground: #f0f7fa;
+  --muted: #2a4550;
+  --muted-foreground: #9ab8c4;
+  --accent: #F9A826;
+  --accent-foreground: #1a2e35;
+  --destructive: #ef4444;
+  --border: #2a4550;
+  --input: #2a4550;
+  --ring: #3B9AC4;
+  --chart-1: #3B9AC4;
+  --chart-2: #F9A826;
+  --chart-3: #5BB5D8;
+  --chart-4: #E8941E;
+  --chart-5: #2a4550;
+  --sidebar: #1a2e35;
+  --sidebar-foreground: #f0f7fa;
+  --sidebar-primary: #7EC8E3;
+  --sidebar-primary-foreground: #1a2e35;
+  --sidebar-accent: #2a4550;
+  --sidebar-accent-foreground: #f0f7fa;
+  --sidebar-border: #2a4550;
+  --sidebar-ring: #7EC8E3;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Custom animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.4); }
+  50% { box-shadow: 0 0 0 15px rgba(37, 211, 102, 0); }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out forwards;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.6s ease-out forwards;
+}
+
+/* Stagger animation delays */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+
+/* Gradient backgrounds - Logo style */
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #5BB5D8 0%, #3B9AC4 100%);
+}
+
+.bg-gradient-hero {
+  background: linear-gradient(180deg, #E8F4F8 0%, #FAFCFD 100%);
+}
+
+.bg-gradient-logo {
+  background: linear-gradient(135deg, #3B9AC4 0%, #2A8BA8 100%);
+}
+
+.bg-gradient-orange {
+  background: linear-gradient(135deg, #FFB94D 0%, #F9A826 100%);
+}
+
+/* WhatsApp button styles */
+.whatsapp-float {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  background: #25D366;
+  color: white;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.4);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.whatsapp-float:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 25px rgba(37, 211, 102, 0.5);
+}
+
+/* Card hover effects */
+.card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(126, 200, 227, 0.15);
+}

@@ -1,0 +1,36 @@
+{
+  "dates": [
+    {
+      "id": "1",
+      "createdAt": "2024-12-29T00:00:00.000Z",
+      "date": "2025-01-15",
+      "location": "La Paz",
+      "status": "en_camino",
+      "notes": "Primer envio del ano"
+    },
+    {
+      "id": "2",
+      "date": "2025-01-30",
+      "location": "Santa Cruz",
+      "status": "programado",
+      "notes": "",
+      "createdAt": "2024-12-29T00:00:00.000Z"
+    },
+    {
+      "id": "3",
+      "date": "2025-02-15",
+      "location": "Cochabamba",
+      "status": "programado",
+      "notes": "Incluye zona norte",
+      "createdAt": "2024-12-29T00:00:00.000Z"
+    },
+    {
+      "id": "mjru434jh7h2uyz94jt",
+      "date": "2025-12-16",
+      "location": "Santa Cruz",
+      "status": "programado",
+      "notes": "",
+      "createdAt": "2025-12-30T00:14:00.403Z"
+    }
+  ]
+}
