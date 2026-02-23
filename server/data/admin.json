@@ -1,4 +1,9 @@
 {
   "password": "admin123",
-  "sessions": []
+  "sessions": [
+    {
+      "token": "mlzngkgsfzono7ry6cqmlzngkgsy97rlxvqk6s",
+      "expiresAt": 1771966159516
+    }
+  ]
 }
