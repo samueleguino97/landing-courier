@@ -3,26 +3,71 @@ import { cors } from "hono/cors";
 import type {
 	AdminLoginResponse,
 	ApiResponse,
-	ArrivalDate,
+	ConvertQuoteToOrderInput,
 	CreateArrivalDateInput,
+	CreateQuoteInput,
 	DateResponse,
 	DatesResponse,
 	DeleteResponse,
+	OrderResponse,
+	OrdersResponse,
+	QuoteResponse,
+	QuotesResponse,
 	UpdateArrivalDateInput,
+	UpdateOrderItemStatusInput,
+	UpdateQuoteInput,
 } from "shared/dist";
+import {
+	convertQuoteToOrder,
+	createFlight,
+	createQuote,
+	deleteFlight,
+	getFlightById,
+	getOrderById,
+	getQuoteById,
+	initDatabase,
+	listFlights,
+	listOrders,
+	listQuotes,
+	syncOrderItemsWithFlightStatus,
+	updateFlight,
+	updateOrderItemStatus,
+	updateQuote,
+} from "./db";
 import {
 	createSession,
 	deleteSession,
-	generateId,
-	readDates,
 	validatePassword,
 	validateSession,
-	writeDates,
 } from "./utils/storage";
 
 const app = new Hono();
 
 app.use(cors());
+
+let dbInitError: Error | null = null;
+const dbInitPromise = initDatabase().catch((error) => {
+	dbInitError =
+		error instanceof Error ? error : new Error("No se pudo iniciar Postgres");
+	console.error("Database init error:", dbInitError);
+});
+
+app.use("/api/*", async (c, next) => {
+	await dbInitPromise;
+
+	if (dbInitError) {
+		return c.json(
+			{
+				success: false,
+				message:
+					"Error de base de datos. Verifica DATABASE_URL y que Postgres este activo.",
+			},
+			500,
+		);
+	}
+
+	await next();
+});
 
 // Health check
 app.get("/", (c) => {
@@ -310,18 +355,61 @@ app.post("/api/amazon/weight", async (c) => {
 });
 
 // Get all upcoming dates (public)
-app.get("/api/dates", (c) => {
-	const dates = readDates();
-	const response: DatesResponse = {
-		success: true,
-		data: dates,
-	};
-	return c.json(response);
+app.get("/api/dates", async (c) => {
+	try {
+		const dates = await listFlights();
+		const response: DatesResponse = {
+			success: true,
+			data: dates,
+		};
+		return c.json(response);
+	} catch (error) {
+		return c.json({ success: false, message: "Error al cargar vuelos" }, 500);
+	}
+});
+
+// Create quote from landing
+app.post("/api/quotes", async (c) => {
+	try {
+		const body = (await c.req.json()) as CreateQuoteInput;
+
+		if (!body.customerName?.trim() || !body.customerWhatsapp?.trim()) {
+			return c.json(
+				{
+					success: false,
+					message: "Nombre y WhatsApp son requeridos",
+				},
+				400,
+			);
+		}
+
+		if (!Array.isArray(body.items) || body.items.length === 0) {
+			return c.json(
+				{
+					success: false,
+					message: "Debes agregar al menos un producto",
+				},
+				400,
+			);
+		}
+
+		const quote = await createQuote(body);
+		const response: QuoteResponse = {
+			success: true,
+			data: quote,
+		};
+
+		return c.json(response, 201);
+	} catch (error) {
+		return c.json(
+			{ success: false, message: "Error al crear cotizacion" },
+			500,
+		);
+	}
 });
 
 // ============ AUTH ROUTES ============
 
-// Admin login
 app.post("/api/admin/login", async (c) => {
 	try {
 		const body = await c.req.json();
@@ -358,7 +446,6 @@ app.post("/api/admin/login", async (c) => {
 	}
 });
 
-// Admin logout
 app.post("/api/admin/logout", async (c) => {
 	const authHeader = c.req.header("Authorization");
 	if (authHeader?.startsWith("Bearer ")) {
@@ -368,7 +455,6 @@ app.post("/api/admin/logout", async (c) => {
 	return c.json({ success: true });
 });
 
-// Verify token
 app.get("/api/admin/verify", (c) => {
 	const authHeader = c.req.header("Authorization");
 	if (!authHeader?.startsWith("Bearer ")) {
@@ -387,7 +473,6 @@ app.get("/api/admin/verify", (c) => {
 
 // ============ PROTECTED ADMIN ROUTES ============
 
-// Auth middleware for admin routes
 const authMiddleware = async (c: any, next: any) => {
 	const authHeader = c.req.header("Authorization");
 
@@ -403,17 +488,20 @@ const authMiddleware = async (c: any, next: any) => {
 	await next();
 };
 
-// Get all dates (admin)
-app.get("/api/admin/dates", authMiddleware, (c) => {
-	const dates = readDates();
-	const response: DatesResponse = {
-		success: true,
-		data: dates,
-	};
-	return c.json(response);
+// Flights
+app.get("/api/admin/dates", authMiddleware, async (c) => {
+	try {
+		const dates = await listFlights();
+		const response: DatesResponse = {
+			success: true,
+			data: dates,
+		};
+		return c.json(response);
+	} catch (error) {
+		return c.json({ success: false, message: "Error al cargar vuelos" }, 500);
+	}
 });
 
-// Create new date
 app.post("/api/admin/dates", authMiddleware, async (c) => {
 	try {
 		const body = (await c.req.json()) as CreateArrivalDateInput;
@@ -428,94 +516,282 @@ app.post("/api/admin/dates", authMiddleware, async (c) => {
 			);
 		}
 
-		const dates = readDates();
-		const newDate: ArrivalDate = {
-			id: generateId(),
-			departureDate: body.departureDate,
-			date: body.date,
-			location: body.location,
-			status: body.status,
-			notes: body.notes || "",
-			createdAt: new Date().toISOString(),
-		};
-
-		dates.push(newDate);
-		writeDates(dates);
-
+		const created = await createFlight(body);
 		const response: DateResponse = {
 			success: true,
-			data: newDate,
+			data: created,
 		};
 		return c.json(response, 201);
 	} catch (error) {
-		return c.json({ success: false, message: "Error al crear fecha" }, 500);
+		return c.json({ success: false, message: "Error al crear vuelo" }, 500);
 	}
 });
 
-// Update date
 app.put("/api/admin/dates/:id", authMiddleware, async (c) => {
 	try {
 		const id = c.req.param("id");
 		const body = (await c.req.json()) as UpdateArrivalDateInput;
 
-		const dates = readDates();
-		const existingDate = dates.find((d) => d.id === id);
-
-		if (!existingDate) {
-			return c.json({ success: false, message: "Fecha no encontrada" }, 404);
+		const existing = await getFlightById(id);
+		if (!existing) {
+			return c.json({ success: false, message: "Vuelo no encontrado" }, 404);
 		}
 
-		const updatedDate: ArrivalDate = {
-			id: existingDate.id,
-			createdAt: existingDate.createdAt,
-			departureDate: body.departureDate ?? existingDate.departureDate,
-			date: body.date ?? existingDate.date,
-			location: body.location ?? existingDate.location,
-			status: body.status ?? existingDate.status,
-			notes: body.notes !== undefined ? body.notes : existingDate.notes,
-		};
+		const updated = await updateFlight(id, body);
+		if (!updated) {
+			return c.json({ success: false, message: "Vuelo no encontrado" }, 404);
+		}
 
-		const index = dates.findIndex((d) => d.id === id);
-		dates[index] = updatedDate;
-
-		writeDates(dates);
+		if (body.status && body.status !== existing.status) {
+			await syncOrderItemsWithFlightStatus(id, body.status);
+		}
 
 		const response: DateResponse = {
 			success: true,
-			data: updatedDate,
+			data: updated,
 		};
 		return c.json(response);
 	} catch (error) {
 		return c.json(
-			{ success: false, message: "Error al actualizar fecha" },
+			{ success: false, message: "Error al actualizar vuelo" },
 			500,
 		);
 	}
 });
 
-// Delete date
 app.delete("/api/admin/dates/:id", authMiddleware, async (c) => {
 	try {
 		const id = c.req.param("id");
+		const deleted = await deleteFlight(id);
 
-		const dates = readDates();
-		const index = dates.findIndex((d) => d.id === id);
-
-		if (index === -1) {
-			return c.json({ success: false, message: "Fecha no encontrada" }, 404);
+		if (!deleted) {
+			return c.json({ success: false, message: "Vuelo no encontrado" }, 404);
 		}
-
-		dates.splice(index, 1);
-		writeDates(dates);
 
 		const response: DeleteResponse = {
 			success: true,
-			message: "Fecha eliminada correctamente",
+			message: "Vuelo eliminado correctamente",
 		};
 		return c.json(response);
 	} catch (error) {
-		return c.json({ success: false, message: "Error al eliminar fecha" }, 500);
+		const errorCode = (error as { code?: string }).code;
+		if (errorCode === "23503") {
+			return c.json(
+				{
+					success: false,
+					message: "No puedes eliminar un vuelo que ya tiene pedidos",
+				},
+				409,
+			);
+		}
+
+		return c.json({ success: false, message: "Error al eliminar vuelo" }, 500);
 	}
 });
+
+// Quotes
+app.get("/api/admin/quotes", authMiddleware, async (c) => {
+	try {
+		const quotes = await listQuotes();
+		const response: QuotesResponse = {
+			success: true,
+			data: quotes,
+		};
+		return c.json(response);
+	} catch (error) {
+		return c.json(
+			{ success: false, message: "Error al cargar cotizaciones" },
+			500,
+		);
+	}
+});
+
+app.get("/api/admin/quotes/:id", authMiddleware, async (c) => {
+	try {
+		const id = c.req.param("id");
+		const quote = await getQuoteById(id);
+
+		if (!quote) {
+			return c.json(
+				{ success: false, message: "Cotizacion no encontrada" },
+				404,
+			);
+		}
+
+		const response: QuoteResponse = {
+			success: true,
+			data: quote,
+		};
+		return c.json(response);
+	} catch (error) {
+		return c.json(
+			{ success: false, message: "Error al cargar cotizacion" },
+			500,
+		);
+	}
+});
+
+app.put("/api/admin/quotes/:id", authMiddleware, async (c) => {
+	try {
+		const id = c.req.param("id");
+		const body = (await c.req.json()) as UpdateQuoteInput;
+
+		const existing = await getQuoteById(id);
+		if (!existing) {
+			return c.json(
+				{ success: false, message: "Cotizacion no encontrada" },
+				404,
+			);
+		}
+
+		if (existing.status === "converted") {
+			return c.json(
+				{
+					success: false,
+					message: "La cotizacion ya fue convertida a pedido",
+				},
+				400,
+			);
+		}
+
+		const updated = await updateQuote(id, body);
+		if (!updated) {
+			return c.json(
+				{ success: false, message: "Cotizacion no encontrada" },
+				404,
+			);
+		}
+
+		const response: QuoteResponse = {
+			success: true,
+			data: updated,
+		};
+		return c.json(response);
+	} catch (error) {
+		return c.json(
+			{ success: false, message: "Error al actualizar cotizacion" },
+			500,
+		);
+	}
+});
+
+app.post("/api/admin/quotes/:id/convert", authMiddleware, async (c) => {
+	try {
+		const id = c.req.param("id");
+		const body = (await c.req.json()) as ConvertQuoteToOrderInput;
+
+		if (!body.flightId) {
+			return c.json(
+				{ success: false, message: "Debes seleccionar un vuelo" },
+				400,
+			);
+		}
+
+		const order = await convertQuoteToOrder(id, body.flightId);
+		const response: OrderResponse = {
+			success: true,
+			data: order,
+		};
+		return c.json(response, 201);
+	} catch (error) {
+		const message = (error as Error).message;
+
+		if (message === "QUOTE_NOT_FOUND") {
+			return c.json(
+				{ success: false, message: "Cotizacion no encontrada" },
+				404,
+			);
+		}
+
+		if (message === "FLIGHT_NOT_FOUND") {
+			return c.json({ success: false, message: "Vuelo no encontrado" }, 404);
+		}
+
+		if (message === "QUOTE_ALREADY_CONVERTED") {
+			return c.json(
+				{ success: false, message: "Esta cotizacion ya fue convertida" },
+				400,
+			);
+		}
+
+		return c.json(
+			{ success: false, message: "Error al convertir cotizacion" },
+			500,
+		);
+	}
+});
+
+// Orders
+app.get("/api/admin/orders", authMiddleware, async (c) => {
+	try {
+		const orders = await listOrders();
+		const response: OrdersResponse = {
+			success: true,
+			data: orders,
+		};
+		return c.json(response);
+	} catch (error) {
+		return c.json({ success: false, message: "Error al cargar pedidos" }, 500);
+	}
+});
+
+app.get("/api/admin/orders/:id", authMiddleware, async (c) => {
+	try {
+		const id = c.req.param("id");
+		const order = await getOrderById(id);
+
+		if (!order) {
+			return c.json({ success: false, message: "Pedido no encontrado" }, 404);
+		}
+
+		const response: OrderResponse = {
+			success: true,
+			data: order,
+		};
+		return c.json(response);
+	} catch (error) {
+		return c.json({ success: false, message: "Error al cargar pedido" }, 500);
+	}
+});
+
+app.patch(
+	"/api/admin/orders/:orderId/items/:itemId/status",
+	authMiddleware,
+	async (c) => {
+		try {
+			const orderId = c.req.param("orderId");
+			const itemId = c.req.param("itemId");
+			const body = (await c.req.json()) as UpdateOrderItemStatusInput;
+
+			if (!body.status) {
+				return c.json({ success: false, message: "Estado requerido" }, 400);
+			}
+
+			const validStatuses = ["pending", "in_flight", "arrived", "completed"];
+			if (!validStatuses.includes(body.status)) {
+				return c.json({ success: false, message: "Estado invalido" }, 400);
+			}
+
+			const order = await updateOrderItemStatus(orderId, itemId, body.status);
+			if (!order) {
+				return c.json(
+					{ success: false, message: "Pedido o producto no encontrado" },
+					404,
+				);
+			}
+
+			const response: OrderResponse = {
+				success: true,
+				data: order,
+			};
+			return c.json(response);
+		} catch (error) {
+			return c.json(
+				{ success: false, message: "Error al actualizar estado del producto" },
+				500,
+			);
+		}
+	},
+);
 
 export default app;

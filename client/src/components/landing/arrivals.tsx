@@ -9,9 +9,9 @@ const statusLabels: Record<
 	string,
 	{ label: string; variant: "success" | "warning" | "info" }
 > = {
-	programado: { label: "Programado", variant: "info" },
-	en_camino: { label: "En Camino", variant: "warning" },
-	llego: { label: "Llego", variant: "success" },
+	pending: { label: "Programado", variant: "info" },
+	in_flight: { label: "En Vuelo", variant: "warning" },
+	arrived: { label: "Llego", variant: "success" },
 };
 
 type ArrivalsProps = {
@@ -30,7 +30,7 @@ function useArrivalDates() {
 				if (data.success) {
 					const upcoming = data.data
 						.filter(
-							(d) => new Date(d.date) >= new Date() || d.status !== "llego",
+							(d) => new Date(d.date) >= new Date() || d.status !== "arrived",
 						)
 						.sort(
 							(a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),

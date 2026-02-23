@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { createQuoteFromLanding } from "@/lib/api";
 import { PRICING, SERVER_URL, WHATSAPP_URL } from "@/lib/constants";
 
 type CategoryType = "standard" | "premium" | "special";
@@ -150,6 +151,11 @@ export function Quoter() {
 	const [isLoading, setIsLoading] = useState(false);
 	const [fetchMessage, setFetchMessage] = useState("");
 	const [products, setProducts] = useState<QuotedProduct[]>([]);
+	const [customerName, setCustomerName] = useState("");
+	const [customerWhatsapp, setCustomerWhatsapp] = useState("");
+	const [customerNotes, setCustomerNotes] = useState("");
+	const [submittingQuote, setSubmittingQuote] = useState(false);
+	const [submitMessage, setSubmitMessage] = useState("");
 
 	const selectedCategory =
 		CATEGORIES.find((c) => c.id === category) || CATEGORIES[0];
@@ -332,6 +338,64 @@ Por favor, confirmar disponibilidad.`;
 
 		const whatsappUrl = `${WHATSAPP_URL}&text=${encodeURIComponent(message)}`;
 		window.open(whatsappUrl, "_blank");
+	};
+
+	const handleSubmitQuote = async () => {
+		if (products.length === 0) {
+			setSubmitMessage(
+				"Agrega al menos un producto para enviar la cotizacion.",
+			);
+			return;
+		}
+
+		if (!customerName.trim() || !customerWhatsapp.trim()) {
+			setSubmitMessage(
+				"Ingresa tu nombre y WhatsApp para enviar la cotizacion.",
+			);
+			return;
+		}
+
+		setSubmittingQuote(true);
+		setSubmitMessage("");
+
+		try {
+			const quote = await createQuoteFromLanding({
+				customerName: customerName.trim(),
+				customerWhatsapp: customerWhatsapp.trim(),
+				customerNotes: customerNotes.trim() || undefined,
+				items: products.map((product) => ({
+					name: product.name,
+					description: product.description,
+					amazonLink: product.amazonLink,
+					weight: product.weight,
+					quantity:
+						product.pricingMode === "per_pound"
+							? 1
+							: Math.max(product.quantity, 1),
+					category: product.category,
+					categoryLabel: product.categoryLabel,
+					categoryType: product.categoryType,
+					pricingMode: product.pricingMode,
+					unitPrice: product.price,
+					priceLabel: product.priceLabel,
+					totalPrice: product.totalPrice,
+				})),
+			});
+
+			setProducts([]);
+			setCustomerName("");
+			setCustomerWhatsapp("");
+			setCustomerNotes("");
+			setSubmitMessage(`Cotizacion enviada! Codigo: ${quote.id.slice(0, 8)}`);
+		} catch (error) {
+			setSubmitMessage(
+				error instanceof Error
+					? error.message
+					: "No se pudo enviar la cotizacion",
+			);
+		} finally {
+			setSubmittingQuote(false);
+		}
 	};
 
 	const isValidAmazonLink = (link: string) => {
@@ -615,6 +679,48 @@ Por favor, confirmar disponibilidad.`;
 								{products.length > 0 && (
 									<div className="mt-6 p-6 bg-gradient-to-r from-[#3B9AC4]/10 to-[#F9A826]/10 rounded-2xl border border-[#3B9AC4]/30 animate-fade-in-up">
 										<div className="text-center">
+											<div className="grid sm:grid-cols-2 gap-3 text-left mb-4">
+												<div>
+													<label className="block text-sm font-medium text-foreground mb-1">
+														Nombre completo
+													</label>
+													<Input
+														type="text"
+														placeholder="Ej: Maria Perez"
+														value={customerName}
+														onChange={(e) => setCustomerName(e.target.value)}
+														className="bg-background"
+													/>
+												</div>
+												<div>
+													<label className="block text-sm font-medium text-foreground mb-1">
+														WhatsApp
+													</label>
+													<Input
+														type="tel"
+														placeholder="Ej: +59170000000"
+														value={customerWhatsapp}
+														onChange={(e) =>
+															setCustomerWhatsapp(e.target.value)
+														}
+														className="bg-background"
+													/>
+												</div>
+											</div>
+
+											<div className="text-left mb-4">
+												<label className="block text-sm font-medium text-foreground mb-1">
+													Notas para admin (opcional)
+												</label>
+												<Input
+													type="text"
+													placeholder="Ej: Necesito entrega en zona norte"
+													value={customerNotes}
+													onChange={(e) => setCustomerNotes(e.target.value)}
+													className="bg-background"
+												/>
+											</div>
+
 											<p className="text-sm text-muted-foreground mb-2">
 												Costo Total Estimado
 											</p>
@@ -632,6 +738,15 @@ Por favor, confirmar disponibilidad.`;
 
 											<div className="flex flex-col sm:flex-row gap-3 justify-center">
 												<Button
+													onClick={handleSubmitQuote}
+													disabled={submittingQuote}
+													className="bg-[#3B9AC4] hover:bg-[#2A8BA8] text-white font-semibold rounded-xl"
+												>
+													{submittingQuote
+														? "Enviando..."
+														: "Enviar cotizacion"}
+												</Button>
+												<Button
 													onClick={handleWhatsAppContact}
 													className="bg-[#25D366] hover:bg-[#20bd5a] text-white font-semibold rounded-xl"
 												>
@@ -639,6 +754,12 @@ Por favor, confirmar disponibilidad.`;
 													Confirmar por WhatsApp
 												</Button>
 											</div>
+
+											{submitMessage && (
+												<p className="text-xs text-muted-foreground mt-3">
+													{submitMessage}
+												</p>
+											)}
 
 											<p className="text-xs text-muted-foreground mt-4">
 												* El precio final puede variar segun dimensiones y peso
